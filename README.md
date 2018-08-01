@@ -9,7 +9,7 @@ account more data like precipitation but this is a good start.
 
 I implemented this idea before in [Clojure and
 ClojureScript](https://github.com/borkdude/balcony), but in those versions I
-didn't need the database, since I used a historical API which is not free
+didn't need the database since I used a historical API. That API is not free
 anymore and I don't want to pay 35 dollars a month for a reminder about watering
 my balcony. Since the requirements changed, I decided to do it in Haskell for
 fun and to learn something new.
