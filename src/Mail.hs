@@ -2,15 +2,14 @@
 
 module Mail where
 
-import Control.Monad
-import Data.ByteString.Lazy (toStrict)
-import Data.Text as T (Text, pack, unpack)
-import Data.Text.Lazy as L (Text, pack, fromStrict)
-import Network.HaskellNet.Auth
-import qualified Network.HaskellNet.SMTP as S
+import           Config as C
+import           Control.Monad
+import           Data.ByteString.Lazy (toStrict)
+import           Data.Text as T (Text, pack, unpack)
+import           Data.Text.Lazy as L (fromStrict)
+import           Network.HaskellNet.Auth
 import qualified Network.HaskellNet.SMTP.SSL as SSL
-import Network.Mail.Mime as M
-import Config as C
+import           Network.Mail.Mime as M
 
 -- thanks to http://czyzykowski.com/posts/ssl-email-haskell.html
 
@@ -18,13 +17,13 @@ toString :: Address -> String
 toString Address { addressEmail = email } = unpack email
 
 sendMail :: String -> String -> String -> Mail -> IO ()
-sendMail smtpHost smtpUser smtpPass msg = do
+sendMail host user pass msg = do
   rendered   <- renderMail' msg
-  SSL.doSMTPSSL smtpHost $ \connection -> do
+  SSL.doSMTPSSL host $ \connection -> do
       succeeded  <- SSL.authenticate
                       LOGIN
-                      smtpUser
-                      smtpPass
+                      user
+                      pass
                       connection
       when succeeded $
           SSL.sendMail (toString (M.mailFrom msg))
@@ -33,7 +32,6 @@ sendMail smtpHost smtpUser smtpPass msg = do
 
 sendSimpleMail ::
   Config -> T.Text -> IO ()
-
 sendSimpleMail c text =
   let mail = Mail
         (Address Nothing (T.pack (C.mailFrom c)))

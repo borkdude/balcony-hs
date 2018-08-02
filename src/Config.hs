@@ -20,6 +20,7 @@ data Config = Config
   , smtpPass :: String
   } deriving (Show)
 
+safeGetEnv :: String -> String -> IO String
 safeGetEnv n def =
   catch (getEnv n)
     (\e ->
@@ -27,6 +28,7 @@ safeGetEnv n def =
        then return def  
        else ioError e)
 
+config :: IO Config
 config = Config
            <$>
            safeGetEnv "BALCONY_DB_NAME" "balcony"
