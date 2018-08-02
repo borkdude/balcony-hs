@@ -81,7 +81,7 @@ sendAvgToday = do
   return $ do
     avg <- getAvgToday connString
     case avg of
-      Nothing -> return ()
+      Nothing -> putStrLn "No temperatures recorded for today yet."
       Just temp ->
         let prettyTemp = printf "%2.1f" temp
         in simpleMail prettyTemp
