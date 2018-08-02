@@ -3,7 +3,7 @@ module Mail where
 import Control.Monad
 import Data.ByteString.Lazy (toStrict)
 import Data.Text as T (Text, pack, unpack)
-import Data.Text.Lazy as L (Text, pack)
+import Data.Text.Lazy as L (Text, pack, fromStrict)
 import Network.HaskellNet.Auth
 import qualified Network.HaskellNet.SMTP as S
 import qualified Network.HaskellNet.SMTP.SSL as SSL
@@ -30,7 +30,7 @@ sendMail smtpHost smtpUser smtpPass msg = do
                        (toStrict rendered) connection
 
 sendSimpleMail ::
-  Config -> String -> IO ()
+  Config -> T.Text -> IO ()
 
 sendSimpleMail c text =
   let mail = Mail
@@ -39,5 +39,5 @@ sendSimpleMail c text =
         []
         []
         []
-        [[plainPart $ L.pack text]]
+        [[plainPart $ L.fromStrict text]]
   in sendMail (smtpHost c) (smtpUser c) (smtpPass c) mail

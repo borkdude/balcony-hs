@@ -14,6 +14,7 @@ data Config = Config
   , weatherAPIKey :: String
   , mailFrom :: String
   , mailTo :: [String]
+  , mailBody :: String
   , smtpHost :: String
   , smtpUser :: String
   , smtpPass :: String
@@ -43,6 +44,9 @@ config = Config
            getEnv "BALCONY_MAIL_FROM"
            <*>
            fmap (splitOn ",") (getEnv "BALCONY_MAIL_TO")
+           <*>
+           safeGetEnv "BALCONY_MAIL_BODY"
+                      "Please water the balcony tonight. The average temperature between 9AM and 7PM was {{avg}} degrees Celcius."
            <*>
            safeGetEnv "BALCONY_SMTP_HOST" "smtp.gmail.com"
            <*>

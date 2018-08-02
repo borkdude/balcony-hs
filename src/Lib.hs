@@ -12,7 +12,7 @@ import           Data.Aeson (FromJSON, parseJSON, withObject, eitherDecode, (.:)
 import qualified Data.ByteString.Char8 as BC
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Scientific (Scientific, toRealFloat)
-import qualified Data.Text as T (pack)
+import qualified Data.Text as T (unpack, pack, replace)
 import qualified Data.Text.Lazy as TL (pack, Text)
 import           Data.Time.Calendar (addDays)
 import           Data.Time.Clock (getCurrentTime, utctDay)
@@ -72,16 +72,25 @@ getAvgToday connString = do
   conn <- connectPostgreSQL $ BC.pack connString
   res <- query conn tempQuery (show today, show tomorrow) :: IO [Only Scientific]
   return $ case res of
-    [] -> Nothing
+    -- TODO: handle null result
     [Only m] -> Just (toRealFloat m)
+
+mailText = do
+  body <- mailBody
+  return $ \avg -> let
+    bt = T.pack body
+    t = T.replace "{{avg}}" avg bt
+    in t
 
 sendAvgToday = do
   simpleMail <- sendSimpleMail
   connString <- connectionString
+  bodyTemplate <- mailText
   return $ do
     avg <- getAvgToday connString
     case avg of
       Nothing -> putStrLn "No temperatures recorded for today yet."
       Just temp ->
-        let prettyTemp = printf "%2.1f" temp
-        in simpleMail prettyTemp
+        let prettyTemp = T.pack $ printf "%2.1f" temp
+            body = bodyTemplate prettyTemp
+        in putStrLn (T.unpack body) >> simpleMail body

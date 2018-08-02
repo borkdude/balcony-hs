@@ -35,6 +35,7 @@ Set the following environment variables. Those with defaults are optional.
     BALCONY_WEATHER_API_KEY
     BALCONY_MAIL_FROM
     BALCONY_MAIL_TO (comma separated string)
+    BALCONY_MAIL_BODY (optional body template where {{avg}} will be replaced with the average)
 
 ### Building
 
