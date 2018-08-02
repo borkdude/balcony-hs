@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Mail where
 
 import Control.Monad
@@ -38,6 +40,6 @@ sendSimpleMail c text =
         (map (Address Nothing . T.pack) (C.mailTo c))
         []
         []
-        []
+        [("Subject", "Should I water my balcony?")]
         [[plainPart $ L.fromStrict text]]
   in sendMail (smtpHost c) (smtpUser c) (smtpPass c) mail
