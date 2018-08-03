@@ -11,6 +11,8 @@ import           Control.Lens
 import           Data.Aeson (FromJSON, parseJSON, withObject, eitherDecode, (.:))
 import qualified Data.ByteString.Char8 as BC
 import           Data.ByteString.Lazy (ByteString)
+import           Data.Either (either)
+import           Data.Maybe (maybe)
 import           Data.Scientific (Scientific, toRealFloat)
 import qualified Data.Text as T (Text, unpack, pack, replace)
 import           Data.Time.Calendar (addDays)
@@ -49,15 +51,15 @@ getWeather apiKey = do
 storeWeather' :: String -> ByteString -> IO GHC.Int.Int64  
 storeWeather' connString weather = do
   let parsed = eitherDecode weather :: Either String WeatherResponse
-      q = "insert into weather (response, temp) values (?, ?)"
-  case parsed of
-    Right (WeatherResponse pl) ->
-      case pl of
-        [Weather temp] -> do
-          conn <- connectPostgreSQL $ BC.pack connString
-          execute conn q (weather, temp)
-        xs -> error $ "unexpected result" ++ show xs  
-    Left err -> error err
+  either error store parsed where
+    store (WeatherResponse pl) =
+      let q = "insert into weather (response, temp) values (?, ?)"
+      in
+        case pl of
+          [Weather temp] -> do
+            conn <- connectPostgreSQL $ BC.pack connString
+            execute conn q (weather, temp)
+          xs -> error $ "unexpected result" ++ show xs  
 
 storeWeather :: Config -> IO Int64
 storeWeather = do
@@ -73,30 +75,24 @@ getAvgToday connString = do
   conn <- connectPostgreSQL $ BC.pack connString
   res <- query conn tempQuery (show today, show tomorrow) :: IO [Only (Maybe Scientific)]
   return $ case res of
-    [Only m] -> case m of
-      Nothing -> Nothing
-      Just avg -> Just (toRealFloat avg)
+    [Only m] -> fmap toRealFloat m
     _ -> Nothing
 
-mailText :: Config
+mailText :: T.Text
          -> Float -> T.Text
-mailText = do
-  body <- mailBody
-  return $ \avg -> let
-    bt = T.pack body
-    prettyTemp = T.pack $ printf "%2.1f" avg
-    t = T.replace "{{avg}}" prettyTemp bt
-    in t
+mailText template avg = let
+  prettyTemp = T.pack $ printf "%2.1f" avg
+  in T.replace "{{avg}}" prettyTemp template
 
 sendAvgToday :: Config -> IO ()
 sendAvgToday = do
   simpleMail <- sendSimpleMail
   connString <- connectionString
-  bodyTemplate <- mailText
+  body <- mailBody
   return $ do
     avg <- getAvgToday connString
     case avg of
       Nothing -> putStrLn "No temperatures recorded for today yet."
       Just temp ->
-        let body = bodyTemplate temp
-        in putStrLn (T.unpack body) >> simpleMail body
+        let mt = mailText (T.pack body) temp
+        in simpleMail mt
