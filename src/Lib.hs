@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
 module Lib
     ( sendAvgToday
@@ -22,9 +22,9 @@ import           Network.Wreq
 import           Text.Printf (printf)
 
 connectionString :: Config -> String
-connectionString c = printf
+connectionString Config {..} = printf
   "host='%s' port=%d user='%s' password='%s' dbname='%s'"
-  (dbHost c) (dbPort c) (dbUser c) (dbPass c) (dbName c)
+  dbHost dbPort dbUser dbPass dbName
 
 newtype Weather = Weather { temperature :: Float }
   deriving (Show)
@@ -56,7 +56,7 @@ storeWeather' connString weather = do
         [Weather temp] -> do
           conn <- connectPostgreSQL $ BC.pack connString
           execute conn q (weather, temp)
-        xs -> error $ "unexpected result" ++ (show xs)  
+        xs -> error $ "unexpected result" ++ show xs  
     Left err -> error err
 
 storeWeather :: Config -> IO Int64
@@ -71,19 +71,21 @@ getAvgToday connString = do
   let tempQuery = "select avg(temp) from weather where _created >= ? and _created <= ?"
       tomorrow = addDays 1 today
   conn <- connectPostgreSQL $ BC.pack connString
-  res <- query conn tempQuery (show today, show tomorrow) :: IO [Only Scientific]
+  res <- query conn tempQuery (show today, show tomorrow) :: IO [Only (Maybe Scientific)]
   return $ case res of
-    [Only m] -> Just (toRealFloat m)
-    -- TODO: hande null
+    [Only m] -> case m of
+      Nothing -> Nothing
+      Just avg -> Just (toRealFloat avg)
     _ -> Nothing
 
 mailText :: Config
-         -> T.Text -> T.Text
+         -> Float -> T.Text
 mailText = do
   body <- mailBody
   return $ \avg -> let
     bt = T.pack body
-    t = T.replace "{{avg}}" avg bt
+    prettyTemp = T.pack $ printf "%2.1f" avg
+    t = T.replace "{{avg}}" prettyTemp bt
     in t
 
 sendAvgToday :: Config -> IO ()
@@ -96,6 +98,5 @@ sendAvgToday = do
     case avg of
       Nothing -> putStrLn "No temperatures recorded for today yet."
       Just temp ->
-        let prettyTemp = T.pack $ printf "%2.1f" temp
-            body = bodyTemplate prettyTemp
+        let body = bodyTemplate temp
         in putStrLn (T.unpack body) >> simpleMail body
