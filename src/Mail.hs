@@ -5,7 +5,7 @@ module Mail where
 import           Config as C
 import           Control.Monad
 import           Data.ByteString.Lazy (toStrict)
-import           Data.Text as T (Text, pack, unpack)
+import           Data.Text as T (Text, unpack)
 import           Data.Text.Lazy as L (fromStrict)
 import           Network.HaskellNet.Auth
 import qualified Network.HaskellNet.SMTP.SSL as SSL
@@ -16,14 +16,14 @@ import           Network.Mail.Mime as M
 toString :: Address -> String
 toString Address { addressEmail = email } = unpack email
 
-sendMail :: String -> String -> String -> Mail -> IO ()
+sendMail :: Text -> Text -> Text -> Mail -> IO ()
 sendMail host user pass msg = do
   rendered   <- renderMail' msg
-  SSL.doSMTPSSL host $ \connection -> do
+  SSL.doSMTPSSL (unpack host) $ \connection -> do
       succeeded  <- SSL.authenticate
                       LOGIN
-                      user
-                      pass
+                      (unpack user)
+                      (unpack pass)
                       connection
       when succeeded $
           SSL.sendMail (toString (M.mailFrom msg))
@@ -34,8 +34,8 @@ sendSimpleMail ::
   Config -> T.Text -> IO ()
 sendSimpleMail c text =
   let mail = Mail
-        (Address Nothing (T.pack (C.mailFrom c)))
-        (map (Address Nothing . T.pack) (C.mailTo c))
+        (Address Nothing (C.mailFrom c))
+        (map (Address Nothing) (C.mailTo c))
         []
         []
         [("Subject", "Should I water my balcony?")]

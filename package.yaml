@@ -33,6 +33,7 @@ dependencies:
 - mime-mail
 - text
 - split
+- formatting
 
 library:
   source-dirs: src

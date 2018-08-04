@@ -1,57 +1,67 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Config where
 
-import System.Environment
 import Control.Exception
+import Data.Text
+import Data.Text.Read
+import System.Environment
 import System.IO.Error
-import Data.List.Split
 
 data Config = Config
-  { dbName :: String
-  , dbHost :: String
+  { dbName :: Text
+  , dbHost :: Text
   , dbPort :: Int
-  , dbUser :: String
-  , dbPass :: String
-  , weatherAPIKey :: String
-  , mailFrom :: String
-  , mailTo :: [String]
-  , mailBody :: String
-  , smtpHost :: String
-  , smtpUser :: String
-  , smtpPass :: String
+  , dbUser :: Text
+  , dbPass :: Text
+  , weatherAPIKey :: Text
+  , mailFrom :: Text
+  , mailTo :: [Text]
+  , mailBody :: Text
+  , smtpHost :: Text
+  , smtpUser :: Text
+  , smtpPass :: Text
   } deriving (Show)
 
-safeGetEnv :: String -> String -> IO String
-safeGetEnv n def =
-  catch (getEnv n)
-    (\e ->
-       if isDoesNotExistError e
-       then return def  
-       else ioError e)
+tGetEnv :: String -> IO Text
+tGetEnv a = pack <$> getEnv a
+
+safeTGetEnv :: String -> Text -> IO Text
+safeTGetEnv n def =
+  catch (tGetEnv n) (\e ->
+    if isDoesNotExistError e
+    then return def  
+    else ioError e)
+
+readInt :: Int -> Text -> Int
+readInt d t =
+  let e = decimal t
+  in either (const d) fst e
 
 config :: IO Config
 config = Config
            <$>
-           safeGetEnv "BALCONY_DB_NAME" "balcony"
+           safeTGetEnv "BALCONY_DB_NAME" "balcony"
            <*>
-           safeGetEnv "BALCONY_DB_HOST" "localhost"
+           safeTGetEnv "BALCONY_DB_HOST" "localhost"
            <*>
-           fmap read (safeGetEnv "BALCONY_DB_PORT" "5432")
+           fmap (readInt 5432) (tGetEnv "BALCONY_DB_PORT")
            <*>
-           safeGetEnv "BALCONY_DB_USER" "balcony"
+           safeTGetEnv "BALCONY_DB_USER" "balcony"
            <*>
-           safeGetEnv "BALCONY_DB_PASS" ""
+           safeTGetEnv "BALCONY_DB_PASS" ""
            <*>
-           getEnv "BALCONY_WEATHER_API_KEY"
+           tGetEnv "BALCONY_WEATHER_API_KEY"
            <*>
-           getEnv "BALCONY_MAIL_FROM"
+           tGetEnv "BALCONY_MAIL_FROM"
            <*>
-           fmap (splitOn ",") (getEnv "BALCONY_MAIL_TO")
+           fmap (splitOn ",") (tGetEnv "BALCONY_MAIL_TO")
            <*>
-           safeGetEnv "BALCONY_MAIL_BODY"
+           safeTGetEnv "BALCONY_MAIL_BODY"
                       "Please water the balcony tonight. The average temperature between 9AM and 7PM was {{avg}} degrees Celcius."
            <*>
-           safeGetEnv "BALCONY_SMTP_HOST" "smtp.gmail.com"
+           safeTGetEnv "BALCONY_SMTP_HOST" "smtp.gmail.com"
            <*>
-           getEnv "BALCONY_SMTP_USER"
+           tGetEnv "BALCONY_SMTP_USER"
            <*>
-           getEnv "BALCONY_SMTP_PASS"
+           tGetEnv "BALCONY_SMTP_PASS"

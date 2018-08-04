@@ -9,24 +9,29 @@ module Lib
 import           Config
 import           Control.Lens
 import           Data.Aeson (FromJSON, parseJSON, withObject, eitherDecode, (.:))
-import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString as B (ByteString)
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Either (either)
-import           Data.Maybe (maybe)
 import           Data.Scientific (Scientific, toRealFloat)
-import qualified Data.Text as T (Text, unpack, pack, replace)
+import qualified Data.Text as T (Text, pack, replace)
+import           Data.Text.Encoding
 import           Data.Time.Calendar (addDays)
 import           Data.Time.Clock (getCurrentTime, utctDay)
 import           Database.PostgreSQL.Simple
+import           Formatting
 import           GHC.Int
 import           Mail
 import           Network.Wreq
 import           Text.Printf (printf)
 
-connectionString :: Config -> String
-connectionString Config {..} = printf
-  "host='%s' port=%d user='%s' password='%s' dbname='%s'"
-  dbHost dbPort dbUser dbPass dbName
+type ConnectionString = B.ByteString
+
+connectionString :: Config -> ConnectionString
+connectionString Config {..} =
+  let cs = sformat ("host=" % stext % " port=" % int % " user=" % stext %
+                   " password=" % stext % " dbname=" % stext)
+           dbHost dbPort dbUser dbPass dbName
+  in encodeUtf8 cs
 
 newtype Weather = Weather { temperature :: Float }
   deriving (Show)
@@ -41,14 +46,14 @@ instance FromJSON WeatherResponse where
   parseJSON = withObject "WeatherResponse" $ \v -> WeatherResponse
     <$> v .: "data"
 
-getWeather :: String -> IO ByteString
+getWeather :: T.Text -> IO ByteString
 getWeather apiKey = do
   let urlTemplate = "https://api.weatherbit.io/v2.0/current?city=Amersfoort,NL&key=%s"
       url = printf urlTemplate apiKey
   response <- get url
   return $ response  ^. responseBody
 
-storeWeather' :: String -> ByteString -> IO GHC.Int.Int64  
+storeWeather' :: ConnectionString -> ByteString -> IO GHC.Int.Int64  
 storeWeather' connString weather = do
   let parsed = eitherDecode weather :: Either String WeatherResponse
   either error store parsed where
@@ -57,7 +62,7 @@ storeWeather' connString weather = do
       in
         case pl of
           [Weather temp] -> do
-            conn <- connectPostgreSQL $ BC.pack connString
+            conn <- connectPostgreSQL connString
             execute conn q (weather, temp)
           xs -> error $ "unexpected result" ++ show xs  
 
@@ -67,12 +72,12 @@ storeWeather = do
   apiKey <- weatherAPIKey
   return $ getWeather apiKey >>= storeWeather' connString
 
-getAvgToday :: String -> IO (Maybe Float)
+getAvgToday :: ConnectionString -> IO (Maybe Float)
 getAvgToday connString = do
   today <- utctDay <$> getCurrentTime
   let tempQuery = "select avg(temp) from weather where _created >= ? and _created <= ?"
       tomorrow = addDays 1 today
-  conn <- connectPostgreSQL $ BC.pack connString
+  conn <- connectPostgreSQL connString
   res <- query conn tempQuery (show today, show tomorrow) :: IO [Only (Maybe Scientific)]
   return $ case res of
     [Only m] -> fmap toRealFloat m
@@ -94,5 +99,5 @@ sendAvgToday = do
     case avg of
       Nothing -> putStrLn "No temperatures recorded for today yet."
       Just temp ->
-        let mt = mailText (T.pack body) temp
+        let mt = mailText body temp
         in simpleMail mt
