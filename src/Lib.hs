@@ -59,12 +59,11 @@ storeWeather' connString weather = do
   either error store parsed where
     store (WeatherResponse pl) =
       let q = "insert into weather (response, temp) values (?, ?)"
-      in
-        case pl of
-          [Weather temp] -> do
-            conn <- connectPostgreSQL connString
-            execute conn q (weather, temp)
-          xs -> error $ "unexpected result" ++ show xs  
+      in case pl of
+        [Weather temp] -> do
+          conn <- connectPostgreSQL connString
+          execute conn q (weather, temp)
+        xs -> error $ "unexpected result" ++ show xs  
 
 storeWeather :: Config -> IO Int64
 storeWeather = do
