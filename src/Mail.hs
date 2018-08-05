@@ -1,12 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
 module Mail where
 
 import           Config as C
 import           Control.Monad
 import           Data.ByteString.Lazy (toStrict)
-import           Data.Text as T (Text, unpack)
-import           Data.Text.Lazy as L (fromStrict)
+import           Data.Text (Text, unpack)
+import           Data.Text.Lazy (fromStrict)
 import           Network.HaskellNet.Auth
 import qualified Network.HaskellNet.SMTP.SSL as SSL
 import           Network.Mail.Mime as M
@@ -31,13 +31,13 @@ sendMail host user pass msg = do
                        (toStrict rendered) connection
 
 sendSimpleMail ::
-  Config -> T.Text -> IO ()
-sendSimpleMail c text =
+  Config -> Text -> IO ()
+sendSimpleMail Config {..} text =
   let mail = Mail
-        (Address Nothing (C.mailFrom c))
-        (map (Address Nothing) (C.mailTo c))
+        (Address Nothing mailFrom)
+        (map (Address Nothing) mailTo)
         []
         []
         [("Subject", "Should I water my balcony?")]
-        [[plainPart $ L.fromStrict text]]
-  in sendMail (smtpHost c) (smtpUser c) (smtpPass c) mail
+        [[plainPart $ fromStrict text]]
+  in sendMail smtpHost smtpUser smtpPass mail

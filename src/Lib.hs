@@ -13,7 +13,7 @@ import qualified Data.ByteString as B (ByteString)
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Either (either)
 import           Data.Scientific (Scientific, toRealFloat)
-import qualified Data.Text as T (Text, pack, replace)
+import           Data.Text (Text, pack, replace)
 import           Data.Text.Encoding
 import           Data.Time.Calendar (addDays)
 import           Data.Time.Clock (getCurrentTime, utctDay)
@@ -46,7 +46,7 @@ instance FromJSON WeatherResponse where
   parseJSON = withObject "WeatherResponse" $ \v -> WeatherResponse
     <$> v .: "data"
 
-getWeather :: T.Text -> IO ByteString
+getWeather :: Text -> IO ByteString
 getWeather apiKey = do
   let urlTemplate = "https://api.weatherbit.io/v2.0/current?city=Amersfoort,NL&key=%s"
       url = printf urlTemplate apiKey
@@ -83,11 +83,10 @@ getAvgToday connString = do
     [Only m] -> fmap toRealFloat m
     _ -> Nothing
 
-mailText :: T.Text
-         -> Float -> T.Text
+mailText :: Text -> Float -> Text
 mailText template avg = let
-  prettyTemp = T.pack $ printf "%2.1f" avg
-  in T.replace "{{avg}}" prettyTemp template
+  prettyTemp = pack $ printf "%2.1f" avg
+  in replace "{{avg}}" prettyTemp template
 
 sendAvgToday :: Config -> IO ()
 sendAvgToday = do
