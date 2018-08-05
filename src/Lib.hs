@@ -95,6 +95,4 @@ sendAvgToday = do
     avg <- getAvgToday connString
     case avg of
       Nothing -> putStrLn "No temperatures recorded for today yet."
-      Just temp ->
-        let mt = mailText body temp
-        in simpleMail mt
+      Just temp -> simpleMail $ mailText body temp
