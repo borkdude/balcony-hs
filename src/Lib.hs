@@ -13,7 +13,7 @@ import qualified Data.ByteString as B (ByteString)
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Either (either)
 import           Data.Scientific (Scientific, toRealFloat)
-import           Data.Text (Text, pack, replace)
+import           Data.Text (Text, pack, replace, unpack)
 import           Data.Text.Encoding
 import           Data.Time.Calendar (addDays)
 import           Data.Time.Clock (getCurrentTime, utctDay)
@@ -22,7 +22,6 @@ import           Formatting
 import           GHC.Int
 import           Mail
 import           Network.Wreq
-import           Text.Printf (printf)
 
 type ConnectionString = B.ByteString
 
@@ -48,9 +47,9 @@ instance FromJSON WeatherResponse where
 
 getWeather :: Text -> IO ByteString
 getWeather apiKey = do
-  let urlTemplate = "https://api.weatherbit.io/v2.0/current?city=Amersfoort,NL&key=%s"
-      url = printf urlTemplate apiKey
-  response <- get url
+  let urlTemplate = "https://api.weatherbit.io/v2.0/current?city=Amersfoort,NL&key=" % stext
+      url = sformat urlTemplate apiKey
+  response <- get (unpack url)
   return $ response  ^. responseBody
 
 storeWeather' :: ConnectionString -> ByteString -> IO GHC.Int.Int64  
@@ -71,7 +70,7 @@ storeWeather = do
   apiKey <- weatherAPIKey
   return $ getWeather apiKey >>= storeWeather' connString
 
-getAvgToday :: ConnectionString -> IO (Maybe Float)
+getAvgToday :: ConnectionString -> IO (Maybe Scientific)
 getAvgToday connString = do
   today <- utctDay <$> getCurrentTime
   let tempQuery = "select avg(temp) from weather where _created >= ? and _created <= ?"
@@ -79,12 +78,12 @@ getAvgToday connString = do
   conn <- connectPostgreSQL connString
   res <- query conn tempQuery (show today, show tomorrow) :: IO [Only (Maybe Scientific)]
   return $ case res of
-    [Only m] -> fmap toRealFloat m
+    [Only m] -> m
     _ -> Nothing
 
-mailText :: Text -> Float -> Text
+mailText :: Text -> Scientific -> Text
 mailText template avg = let
-  prettyTemp = pack $ printf "%2.1f" avg
+  prettyTemp = sformat (fixed 1) avg
   in replace "{{avg}}" prettyTemp template
 
 sendAvgToday :: Config -> IO ()
