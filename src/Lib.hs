@@ -93,6 +93,6 @@ sendAvgToday = do
   body <- mailBody
   return $ do
     avg <- getAvgToday connString
-    case avg of
-      Nothing -> putStrLn "No temperatures recorded for today yet."
-      Just temp -> simpleMail $ mailText body temp
+    let handleNothing = putStrLn "No temperatures recorded for today yet."
+        handleJust = simpleMail . mailText body
+    maybe handleNothing handleJust avg
